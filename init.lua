@@ -1,97 +1,38 @@
---[[
-
-=====================================================================
-==================== READ THIS BEFORE CONTINUING ====================
-=====================================================================
-========                                    .-----.          ========
-========         .----------------------.   | === |          ========
-========         |.-""""""""""""""""""-.|   |-----|          ========
-========         ||                    ||   | === |          ========
-========         ||   KICKSTART.NVIM   ||   |-----|          ========
-========         ||                    ||   | === |          ========
-========         ||                    ||   |-----|          ========
-========         ||:Tutor              ||   |:::::|          ========
-========         |'-..................-'|   |____o|          ========
-========         `"")----------------(""`   ___________      ========
-========        /::::::::::|  |::::::::::\  \ no mouse \     ========
-========       /:::========|  |==hjkl==:::\  \ required \    ========
-========      '""""""""""""'  '""""""""""""'  '""""""""""'   ========
-========                                                     ========
-=====================================================================
-=====================================================================
-
-What is Kickstart?
-
-  Kickstart.nvim is *not* a distribution.
-
-  Kickstart.nvim is a starting point for your own configuration.
-    The goal is that you can read every line of code, top-to-bottom, understand
-    what your configuration is doing, and modify it to suit your needs.
-
-    Once you've done that, you can start exploring, configuring and tinkering to
-    make Neovim your own! That might mean leaving Kickstart just the way it is for a while
-    or immediately breaking it into modular pieces. It's up to you!
-
-    If you don't know anything about Lua, I recommend taking some time to read through
-    a guide. One possible example which will only take 10-15 minutes:
-      - https://learnxinyminutes.com/docs/lua/
-
-    After understanding a bit more about Lua, you can use `:help lua-guide` as a
-    reference for how Neovim integrates Lua.
-    - :help lua-guide
-    - (or HTML version): https://neovim.io/doc/user/lua-guide.html
-
-Kickstart Guide:
-
-  TODO: The very first thing you should do is to run the command `:Tutor` in Neovim.
-
-    If you don't know what this means, type the following:
-      - <escape key>
-      - :
-      - Tutor
-      - <enter key>
-
-    (If you already know the Neovim basics, you can skip this step.)
-
-  Once you've completed that, you can continue working through **AND READING** the rest
-  of the kickstart init.lua.
-
-  Next, run AND READ `:help`.
-    This will open up a help window with some basic information
-    about reading, navigating and searching the builtin help documentation.
-
-    This should be the first place you go to look when you're stuck or confused
-    with something. It's one of my favorite Neovim features.
-
-    MOST IMPORTANTLY, we provide a keymap "<space>sh" to [s]earch the [h]elp documentation,
-    which is very useful when you're not exactly sure of what you're looking for.
-
-  I have left several `:help X` comments throughout the init.lua
-    These are hints about where to find more information about the relevant settings,
-    plugins or Neovim features used in Kickstart.
-
-   NOTE: Look for lines like this
-
-    Throughout the file. These are for you, the reader, to help you understand what is happening.
-    Feel free to delete them once you know what you're doing, but they should serve as a guide
-    for when you are first encountering a few different constructs in your Neovim config.
-
-If you experience any errors while trying to install kickstart, run `:checkhealth` for more info.
-
-I hope you enjoy your Neovim journey,
-- TJ
-
-P.S. You can delete this when you're done too. It's your config now! :)
---]]
-
 -- Set <space> as the leader key
 -- See `:help mapleader`
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
+-- These are the changes you need to make to your init.lua file
+
+-- 1. Add keybinding for NeoTree toggle with Ctrl+N
+-- Add this after the existing keymaps section
+vim.keymap.set('n', '<C-n>', '<cmd>Neotree toggle<CR>', { desc = 'Toggle NeoTree file explorer' })
+
+-- Additional terminal settings for better experience
+-- Disable line numbers in terminal buffers
+vim.api.nvim_create_autocmd('TermOpen', {
+  pattern = '*',
+  callback = function()
+    vim.opt_local.number = false
+    vim.opt_local.relativenumber = false
+    vim.cmd 'startinsert'
+  end,
+})
+
+-- Automatically close terminal window when shell exits
+vim.api.nvim_create_autocmd('TermClose', {
+  pattern = '*',
+  callback = function()
+    if vim.v.event.status == 0 then
+      vim.api.nvim_buf_delete(0, { force = true })
+    end
+  end,
+})
+
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.opt`
@@ -167,6 +108,75 @@ vim.opt.confirm = true
 -- Clear highlights on search when pressing <Esc> in normal mode
 --  See `:help hlsearch`
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
+-- Improved bidirectional toggle between header and implementation files
+vim.keymap.set('n', '<A-o>', function()
+  local file = vim.fn.expand '%:t' -- Just the filename
+  local file_path = vim.fn.expand '%:p:h' -- Current file's directory
+  local project_root = vim.fn.getcwd() -- Project root directory
+
+  -- Determine file type
+  local is_header = file:match '%.h$' or file:match '%.hpp$'
+  local is_impl = file:match '%.cpp$' or file:match '%.cc$'
+
+  if not (is_header or is_impl) then
+    vim.notify('Not a C/C++ file', vim.log.levels.WARN)
+    return
+  end
+
+  -- Extract base name without extension
+  local base_name
+  if is_header then
+    base_name = file:gsub('%.h[pp]*$', '')
+  else
+    base_name = file:gsub('%.c[cp]*$', '')
+  end
+
+  -- Common directory patterns
+  local header_dirs = { 'include', 'inc', 'headers', 'include/mdb' }
+  local impl_dirs = { 'src', 'source', 'lib' }
+
+  -- Find all possible locations
+  local possible_locations = {}
+
+  if is_header then
+    -- We're in a header file, look for implementation
+    for _, ext in ipairs { '.cpp', '.cc' } do
+      -- Check impl directories
+      for _, dir in ipairs(impl_dirs) do
+        table.insert(possible_locations, project_root .. '/' .. dir .. '/' .. base_name .. ext)
+      end
+      -- Also check current directory
+      table.insert(possible_locations, file_path .. '/' .. base_name .. ext)
+    end
+  else
+    -- We're in an implementation file, look for header
+    for _, ext in ipairs { '.h', '.hpp' } do
+      -- Check header directories
+      for _, dir in ipairs(header_dirs) do
+        table.insert(possible_locations, project_root .. '/' .. dir .. '/' .. base_name .. ext)
+      end
+      -- Also check current directory
+      table.insert(possible_locations, file_path .. '/' .. base_name .. ext)
+    end
+  end
+
+  -- Debug: print all possible locations
+  vim.api.nvim_echo({ { 'Searching for alternate file...', 'Normal' } }, false, {})
+  for i, path in ipairs(possible_locations) do
+    local exists = vim.fn.filereadable(path) == 1 and 'EXISTS' or 'not found'
+    vim.api.nvim_echo({ { i .. ': ' .. path .. ' (' .. exists .. ')\n', 'Normal' } }, false, {})
+  end
+
+  -- Try to find the first existing file
+  for _, path in ipairs(possible_locations) do
+    if vim.fn.filereadable(path) == 1 then
+      vim.cmd('edit ' .. path)
+      return
+    end
+  end
+
+  vim.notify('No alternate file found for ' .. file, vim.log.levels.WARN)
+end, { desc = 'Toggle between header and implementation files' })
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
@@ -663,7 +673,7 @@ require('lazy').setup({
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        -- clangd = {},
+        clangd = {},
         -- gopls = {},
         -- pyright = {},
         -- rust_analyzer = {},
@@ -814,77 +824,58 @@ require('lazy').setup({
       local luasnip = require 'luasnip'
       luasnip.config.setup {}
 
-      cmp.setup {
-        snippet = {
-          expand = function(args)
-            luasnip.lsp_expand(args.body)
-          end,
-        },
-        completion = { completeopt = 'menu,menuone,noinsert' },
+      require('cmp').setup {
+        -- Your existing snippet configuration...
 
-        -- For an understanding of why these mappings were
-        -- chosen, you will need to read `:help ins-completion`
-        --
-        -- No, but seriously. Please read `:help ins-completion`, it is really good!
-        mapping = cmp.mapping.preset.insert {
+        -- Update the mapping section to use Tab:
+        mapping = require('cmp').mapping.preset.insert {
           -- Select the [n]ext item
-          ['<C-n>'] = cmp.mapping.select_next_item(),
+          ['<C-n>'] = require('cmp').mapping.select_next_item(),
           -- Select the [p]revious item
-          ['<C-p>'] = cmp.mapping.select_prev_item(),
+          ['<C-p>'] = require('cmp').mapping.select_prev_item(),
 
           -- Scroll the documentation window [b]ack / [f]orward
-          ['<C-b>'] = cmp.mapping.scroll_docs(-4),
-          ['<C-f>'] = cmp.mapping.scroll_docs(4),
+          ['<C-b>'] = require('cmp').mapping.scroll_docs(-4),
+          ['<C-f>'] = require('cmp').mapping.scroll_docs(4),
 
-          -- Accept ([y]es) the completion.
-          --  This will auto-import if your LSP supports it.
-          --  This will expand snippets if the LSP sent a snippet.
-          ['<C-y>'] = cmp.mapping.confirm { select = true },
-
-          -- If you prefer more traditional completion keymaps,
-          -- you can uncomment the following lines
-          --['<CR>'] = cmp.mapping.confirm { select = true },
-          --['<Tab>'] = cmp.mapping.select_next_item(),
-          --['<S-Tab>'] = cmp.mapping.select_prev_item(),
-
-          -- Manually trigger a completion from nvim-cmp.
-          --  Generally you don't need this, because nvim-cmp will display
-          --  completions whenever it has completion options available.
-          ['<C-Space>'] = cmp.mapping.complete {},
-
-          -- Think of <c-l> as moving to the right of your snippet expansion.
-          --  So if you have a snippet that's like:
-          --  function $name($args)
-          --    $body
-          --  end
-          --
-          -- <c-l> will move you to the right of each of the expansion locations.
-          -- <c-h> is similar, except moving you backwards.
-          ['<C-l>'] = cmp.mapping(function()
-            if luasnip.expand_or_locally_jumpable() then
-              luasnip.expand_or_jump()
-            end
-          end, { 'i', 's' }),
-          ['<C-h>'] = cmp.mapping(function()
-            if luasnip.locally_jumpable(-1) then
-              luasnip.jump(-1)
+          -- Use Tab to confirm selection
+          ['<Tab>'] = require('cmp').mapping(function(fallback)
+            if require('cmp').visible() then
+              require('cmp').confirm { select = true }
+            elseif require('luasnip').expand_or_locally_jumpable() then
+              require('luasnip').expand_or_jump()
+            else
+              fallback()
             end
           end, { 'i', 's' }),
 
-          -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
-          --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
+          ['<S-Tab>'] = require('cmp').mapping(function(fallback)
+            if require('cmp').visible() then
+              require('cmp').select_prev_item()
+            elseif require('luasnip').locally_jumpable(-1) then
+              require('luasnip').jump(-1)
+            else
+              fallback()
+            end
+          end, { 'i', 's' }),
+
+          -- Manually trigger a completion from nvim-cmp
+          ['<C-Space>'] = require('cmp').mapping.complete {},
+
+          -- Navigate through snippets
+          ['<C-l>'] = require('cmp').mapping(function()
+            if require('luasnip').expand_or_locally_jumpable() then
+              require('luasnip').expand_or_jump()
+            end
+          end, { 'i', 's' }),
+          ['<C-h>'] = require('cmp').mapping(function()
+            if require('luasnip').locally_jumpable(-1) then
+              require('luasnip').jump(-1)
+            end
+          end, { 'i', 's' }),
         },
-        sources = {
-          {
-            name = 'lazydev',
-            -- set group index to 0 to skip loading LuaLS completions as lazydev recommends it
-            group_index = 0,
-          },
-          { name = 'nvim_lsp' },
-          { name = 'luasnip' },
-          { name = 'path' },
-          { name = 'nvim_lsp_signature_help' },
-        },
+
+        -- Rest of your cmp configuration...
       }
     end,
   },
@@ -986,12 +977,12 @@ require('lazy').setup({
   --  Here are some example plugins that I've included in the Kickstart repository.
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
-  -- require 'kickstart.plugins.debug',
+  require 'kickstart.plugins.debug',
   -- require 'kickstart.plugins.indent_line',
-  -- require 'kickstart.plugins.lint',
+  require 'kickstart.plugins.lint',
   -- require 'kickstart.plugins.autopairs',
-  -- require 'kickstart.plugins.neo-tree',
-  -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+  require 'kickstart.plugins.neo-tree',
+  require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
@@ -1023,6 +1014,52 @@ require('lazy').setup({
       lazy = '💤 ',
     },
   },
+})
+
+local terminal_buf = nil
+local terminal_win = nil
+
+local function toggle_terminal()
+  -- Check if terminal buffer exists and is valid
+  if terminal_buf and vim.api.nvim_buf_is_valid(terminal_buf) then
+    -- Buffer exists, check if it's displayed in a window
+    local win_ids = vim.fn.win_findbuf(terminal_buf)
+    if #win_ids > 0 then
+      -- Terminal is displayed, close the window
+      vim.api.nvim_win_close(win_ids[1], true)
+    else
+      -- Terminal exists but is not displayed, open it in a new window
+      vim.cmd 'botright 10split'
+      terminal_win = vim.api.nvim_get_current_win()
+      vim.api.nvim_win_set_buf(terminal_win, terminal_buf)
+      vim.cmd 'startinsert'
+    end
+  else
+    -- No terminal buffer exists or it's not valid, create a new one
+    vim.cmd 'botright 10split'
+    terminal_win = vim.api.nvim_get_current_win()
+    terminal_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_win_set_buf(terminal_win, terminal_buf)
+    vim.fn.termopen(vim.o.shell)
+    vim.cmd 'startinsert'
+  end
+end
+
+-- Create user command for terminal toggle
+vim.api.nvim_create_user_command('ToggleTerm', toggle_terminal, {})
+
+-- Add keybinding for terminal toggle
+vim.keymap.set('n', '<leader>t', toggle_terminal, { desc = 'Toggle terminal' })
+vim.keymap.set('t', '<leader>t', '<C-\\><C-n>:ToggleTerm<CR>', { desc = 'Toggle terminal' })
+
+-- Disable line numbers in terminal buffers
+vim.api.nvim_create_autocmd('TermOpen', {
+  pattern = '*',
+  callback = function()
+    vim.opt_local.number = false
+    vim.opt_local.relativenumber = false
+    vim.cmd 'startinsert'
+  end,
 })
 
 -- The line beneath this is called `modeline`. See `:help modeline`
