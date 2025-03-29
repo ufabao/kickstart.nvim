@@ -249,24 +249,6 @@ require('lazy').setup({
   -- with the first argument being the link and the following
   -- keys can be used to configure plugin behavior/loading/etc.
   --
-  -- Use `opts = {}` to automatically pass options to a plugin's `setup()` function, forcing the plugin to be loaded.
-  --
-
-  -- Alternatively, use `config = function() ... end` for full control over the configuration.
-  -- If you prefer to call `setup` explicitly, use:
-  --    {
-  --        'lewis6991/gitsigns.nvim',
-  --        config = function()
-  --            require('gitsigns').setup({
-  --                -- Your gitsigns configuration here
-  --            })
-  --        end,
-  --    }
-  --
-  -- Here is a more advanced example where we pass configuration
-  -- options to `gitsigns.nvim`.
-  --
-  -- See `:help gitsigns` to understand what the configuration keys do
   { -- Adds git related signs to the gutter, as well as utilities for managing changes
     'lewis6991/gitsigns.nvim',
     opts = {
@@ -279,7 +261,6 @@ require('lazy').setup({
       },
     },
   },
-
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   --
   -- This is often very useful to both group configuration, as well as handle
@@ -675,8 +656,8 @@ require('lazy').setup({
       local servers = {
         clangd = {},
         -- gopls = {},
-        -- pyright = {},
-        -- rust_analyzer = {},
+        pyright = {},
+        rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
         -- Some languages (like typescript) have entire language plugins that can be useful:
@@ -967,7 +948,72 @@ require('lazy').setup({
     --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
   },
+  {
+    'mfussenegger/nvim-dap',
+    dependencies = {
+      'rcarriga/nvim-dap-ui',
+      'theHamsta/nvim-dap-virtual-text',
+      'nvim-telescope/telescope-dap.nvim',
+    },
+    config = function()
+      local dap = require 'dap'
 
+      -- Set up C++ adapter for lldb
+      dap.adapters.lldb = {
+        type = 'executable',
+        command = '/usr/bin/lldb-vscode', -- adjust path accordingly
+        name = 'lldb',
+      }
+
+      -- Set up C++ configuration
+      dap.configurations.cpp = {
+        {
+          name = 'Launch',
+          type = 'lldb',
+          request = 'launch',
+          program = function()
+            return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+          end,
+          cwd = '${workspaceFolder}',
+          stopOnEntry = false,
+          args = {},
+          runInTerminal = false,
+        },
+      }
+
+      -- Basic keymaps
+      vim.keymap.set('n', '<F5>', function()
+        require('dap').continue()
+      end)
+      vim.keymap.set('n', '<F10>', function()
+        require('dap').step_over()
+      end)
+      vim.keymap.set('n', '<F11>', function()
+        require('dap').step_into()
+      end)
+      vim.keymap.set('n', '<F12>', function()
+        require('dap').step_out()
+      end)
+      vim.keymap.set('n', '<leader>b', function()
+        require('dap').toggle_breakpoint()
+      end)
+
+      -- Set up the UI
+      require('dapui').setup()
+
+      -- Open UI automatically when debugging starts
+      local dapui = require 'dapui'
+      dap.listeners.after.event_initialized['dapui_config'] = function()
+        dapui.open()
+      end
+      dap.listeners.before.event_terminated['dapui_config'] = function()
+        dapui.close()
+      end
+      dap.listeners.before.event_exited['dapui_config'] = function()
+        dapui.close()
+      end
+    end,
+  },
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- place them in the correct locations.
@@ -1061,6 +1107,3 @@ vim.api.nvim_create_autocmd('TermOpen', {
     vim.cmd 'startinsert'
   end,
 })
-
--- The line beneath this is called `modeline`. See `:help modeline`
--- vim: ts=2 sts=2 sw=2 et
