@@ -10,6 +10,7 @@ vim.g.maplocalleader = ' '
 -- Add this after the existing keymaps section
 vim.keymap.set('n', '<C-n>', '<cmd>Neotree toggle<CR>', { desc = 'Toggle NeoTree file explorer' })
 
+vim.keymap.set('n', '<A-o>', '<cmd>ClangdSwitchSourceHeader<CR>', { desc = 'Switch between source/header' })
 -- Additional terminal settings for better experience
 -- Disable line numbers in terminal buffers
 vim.api.nvim_create_autocmd('TermOpen', {
@@ -109,75 +110,6 @@ vim.opt.confirm = true
 --  See `:help hlsearch`
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 -- Improved bidirectional toggle between header and implementation files
-vim.keymap.set('n', '<A-o>', function()
-  local file = vim.fn.expand '%:t' -- Just the filename
-  local file_path = vim.fn.expand '%:p:h' -- Current file's directory
-  local project_root = vim.fn.getcwd() -- Project root directory
-
-  -- Determine file type
-  local is_header = file:match '%.h$' or file:match '%.hpp$'
-  local is_impl = file:match '%.cpp$' or file:match '%.cc$'
-
-  if not (is_header or is_impl) then
-    vim.notify('Not a C/C++ file', vim.log.levels.WARN)
-    return
-  end
-
-  -- Extract base name without extension
-  local base_name
-  if is_header then
-    base_name = file:gsub('%.h[pp]*$', '')
-  else
-    base_name = file:gsub('%.c[cp]*$', '')
-  end
-
-  -- Common directory patterns
-  local header_dirs = { 'include', 'inc', 'headers', 'include/mdb' }
-  local impl_dirs = { 'src', 'source', 'lib' }
-
-  -- Find all possible locations
-  local possible_locations = {}
-
-  if is_header then
-    -- We're in a header file, look for implementation
-    for _, ext in ipairs { '.cpp', '.cc' } do
-      -- Check impl directories
-      for _, dir in ipairs(impl_dirs) do
-        table.insert(possible_locations, project_root .. '/' .. dir .. '/' .. base_name .. ext)
-      end
-      -- Also check current directory
-      table.insert(possible_locations, file_path .. '/' .. base_name .. ext)
-    end
-  else
-    -- We're in an implementation file, look for header
-    for _, ext in ipairs { '.h', '.hpp' } do
-      -- Check header directories
-      for _, dir in ipairs(header_dirs) do
-        table.insert(possible_locations, project_root .. '/' .. dir .. '/' .. base_name .. ext)
-      end
-      -- Also check current directory
-      table.insert(possible_locations, file_path .. '/' .. base_name .. ext)
-    end
-  end
-
-  -- Debug: print all possible locations
-  vim.api.nvim_echo({ { 'Searching for alternate file...', 'Normal' } }, false, {})
-  for i, path in ipairs(possible_locations) do
-    local exists = vim.fn.filereadable(path) == 1 and 'EXISTS' or 'not found'
-    vim.api.nvim_echo({ { i .. ': ' .. path .. ' (' .. exists .. ')\n', 'Normal' } }, false, {})
-  end
-
-  -- Try to find the first existing file
-  for _, path in ipairs(possible_locations) do
-    if vim.fn.filereadable(path) == 1 then
-      vim.cmd('edit ' .. path)
-      return
-    end
-  end
-
-  vim.notify('No alternate file found for ' .. file, vim.log.levels.WARN)
-end, { desc = 'Toggle between header and implementation files' })
-
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 
@@ -739,7 +671,7 @@ require('lazy').setup({
         -- Disable "format_on_save lsp_fallback" for languages that don't
         -- have a well standardized coding style. You can add additional
         -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true }
+        local disable_filetypes = {}
         local lsp_format_opt
         if disable_filetypes[vim.bo[bufnr].filetype] then
           lsp_format_opt = 'never'
@@ -1034,7 +966,7 @@ require('lazy').setup({
   --    This is the easiest way to modularize your config.
   --
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
-  -- { import = 'custom.plugins' },
+  { import = 'custom.plugins' },
   --
   -- For additional information with loading, sourcing and examples see `:help lazy.nvim-🔌-plugin-spec`
   -- Or use telescope!
