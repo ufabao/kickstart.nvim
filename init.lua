@@ -117,7 +117,7 @@ vim.opt.autoindent = true
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 -- Improved bidirectional toggle between header and implementation files
 -- Diagnostic keymaps
-vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+vim.keymap.set('n', '<leader>Q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
@@ -1033,8 +1033,8 @@ end
 vim.api.nvim_create_user_command('ToggleTerm', toggle_terminal, {})
 
 -- Add keybinding for terminal toggle
-vim.keymap.set('n', '<leader>t', toggle_terminal, { desc = 'Toggle terminal' })
-vim.keymap.set('t', '<leader>t', '<C-\\><C-n>:ToggleTerm<CR>', { desc = 'Toggle terminal' })
+vim.keymap.set('n', '<leader>q', toggle_terminal, { desc = 'Toggle terminal' })
+vim.keymap.set('t', '<leader>q', '<C-\\><C-n>:ToggleTerm<CR>', { desc = 'Toggle terminal' })
 
 -- Disable line numbers in terminal buffers
 vim.api.nvim_create_autocmd('TermOpen', {
