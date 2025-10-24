@@ -495,6 +495,9 @@ vim.keymap.set('n', '<leader>op', '<cmd>Neotree toggle<CR>', { desc = '[O]pen [P
 vim.keymap.set('n', '<leader>ot', '<cmd>ToggleTerm<CR>', { desc = '[O]pen [T]erminal' })
 vim.keymap.set('n', '<leader>oT', '<cmd>ToggleTerm direction=vertical<CR>', { desc = '[O]pen [T]erminal vertical' })
 
+-- File navigation (Doom Emacs style "SPC .")
+vim.keymap.set('n', '<leader>.', '<cmd>Telescope find_files<CR>', { desc = 'Find files (like Doom SPC .)' })
+
 -- Git operations (basic, can be extended)
 vim.keymap.set('n', '<leader>gg', '<cmd>!git status<CR>', { desc = '[G]it status' })
 
@@ -513,6 +516,9 @@ vim.keymap.set('n', '<leader>hm', '<cmd>Telescope man_pages<CR>', { desc = '[H]e
 -- Terminal mode mappings
 vim.keymap.set('t', '<C-n>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 vim.keymap.set('t', '<leader>ot', '<cmd>ToggleTerm<CR>', { desc = 'Toggle terminal' })
+
+-- Insert mode navigation (Emacs style Ctrl-F to move forward)
+vim.keymap.set('i', '<C-f>', '<Right>', { desc = 'Move cursor forward in insert mode' })
 
 -- ===== BAZEL BUILD SYSTEM INTEGRATION (Matching Doom config) =====
 -- Bazel configuration variables
